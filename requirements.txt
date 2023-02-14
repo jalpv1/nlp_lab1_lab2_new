@@ -1,0 +1,8 @@
+numpy
+ipykernel
+tqdm
+matplotlib
+pytest
+mkdocs
+markdown-include
+nltk
