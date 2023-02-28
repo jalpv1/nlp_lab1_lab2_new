@@ -301,13 +301,13 @@ if __name__ == "__main__":
     log("# Task N2. Words and The Company They Keep")
     log("## Task N2.1 Best Friends")
 
-    # read the file, make lowercase and strip end of lines
+    # read the file and strip end of lines
     texten1 = []
     with open("./inputs/TEXTEN1.txt") as file:
-        texten1 = [line.rstrip().lower() for line in file]
+        texten1 = [line.rstrip() for line in file]
     textcz1 = []
     with open("./inputs/TEXTCZ1.txt", encoding="iso-8859-2") as file:
-        textcz1 = [line.rstrip().lower() for line in file]
+        textcz1 = [line.rstrip() for line in file]
 
     en1_pmfs = pointwise_mf(texten1, exclude_less=10)
     log("### Best 20 friends in English text, pairs")
@@ -328,7 +328,7 @@ if __name__ == "__main__":
     log("## Task N2.2 Word Classes")
 
     log("### English text")
-    with open("./inputs/TEXTEN1.ptg") as file:
+    with open("./inputs/TEXTEN1.ptg", encoding="iso-8859-2") as file:
         texten1 = [line.split("/")[0].rstrip() for line in file][:8000]
         classes = TextClasses(texten1, exclude_less=0)
         mf = classes.mutual_info(classes.make_mutual_class_counts(), classes.class_counts, classes.classes)
@@ -373,7 +373,7 @@ if __name__ == "__main__":
 
     log("### English tags")
 
-    with open("./inputs/TEXTEN1.ptg") as file:
+    with open("./inputs/TEXTEN1.ptg", encoding="iso-8859-2") as file:
         texten1 = [extract_tag(line).rstrip() for line in file][:8000]
         classes = TextClasses(texten1, exclude_less=5)
         classes.reduce_to(15)
