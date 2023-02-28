@@ -18,9 +18,10 @@ def entropy(text:List[str]):
     HIPipeJ = 0
     n_of_bigrams = len(bigram_counts) #len(text) - 1 # T + 1 - N, len(text) + 1 - 2
     for bigram, bigram_count in bigram_counts.items():
-        Pij = bigram_count/n_of_bigrams
-        PJPipeJ = bigram_count/word_counts[bigram.left]
-        HIPipeJ += - Pij * math.log(PJPipeJ, 2)
+        Pij = bigram_count/len(text)
+        if bigram.right:
+            PJPipeJ = bigram_count/word_counts[bigram.right]
+            HIPipeJ += - Pij * math.log(PJPipeJ, 2)
     return HIPipeJ
 
 # Convert algorithm above to reusable function for the next task
@@ -113,7 +114,7 @@ if __name__ == "__main__":
 
     # read the file, make lowercase and strip end of lines
     texten1 = []
-    with open("./inputs/TEXTEN1.txt") as file:
+    with open("./inputs/TEXTEN1.txt", encoding="iso-8859-2") as file:
         texten1 = [line for line in file]
     textcz1 = []
     with open("./inputs/TEXTCZ1.txt", encoding="iso-8859-2") as file:
@@ -123,8 +124,8 @@ if __name__ == "__main__":
     # clean up text
 
     # remove trailing end-of-lines
-    texten1 = [line.rstrip().lower() for line in texten1]
-    textcz1 = [line.rstrip().lower() for line in textcz1]
+    texten1 = [line.rstrip() for line in texten1]
+    textcz1 = [line.rstrip() for line in textcz1]
 
     word_counts = count_words(texten1)
 
@@ -137,14 +138,19 @@ if __name__ == "__main__":
     unique_words_count_cz = len(unique_words_cz)
     log(f"Number of unique words in textcz1 {unique_words_count_cz}")
 
-
-
     HIPipeJ = entropy(text=texten1)
 
     PX = math.pow(2, HIPipeJ)
 
-    log(f"Conditional entropy {HIPipeJ}")
-    log(f"Perplexity PX = {PX}")
+    log(f"Conditional entropy for English {HIPipeJ}")
+    log(f"Perplexity for English PX = {PX}")
+
+    HIPipeJ = entropy(text=textcz1)
+
+    PX = math.pow(2, HIPipeJ)
+
+    log(f"Conditional entropy for Czech {HIPipeJ}")
+    log(f"Perplexity for Czech PX = {PX}")
 
     probabilities = [10, 5, 1, 0.1, 0.01, 0.001] 
 
