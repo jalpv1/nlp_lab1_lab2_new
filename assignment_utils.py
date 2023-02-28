@@ -24,8 +24,9 @@ def count_ngrams(ngrams_data:List[BiGram | TriGram]) -> Dict[BiGram | TriGram, i
     ngrams = dict()
     for ngram in ngrams_data:
         if ngram not in ngrams:
-            ngrams[ngram] = 0
-        ngrams[ngram] += 1
+            ngrams[ngram] = 1
+        else:
+            ngrams[ngram] += 1
     return ngrams
 
 
@@ -75,14 +76,29 @@ def split(text):
     # example:
     # test = [1,2,3,4,5,6,7,8,9,10][-2:], heldout = ([1,2,3,4,5,6,7,8,9,10][:-2])[-4:], training = [1,2,3,4,5,6,7,8,9,10][:-6], training + heldout + test == [1, 2, 3, 4, 5, 6, 5, 6, 7, 8, 9, 10]
 
-def discount_by(l0, l1, l2, l3, percent):
-    diff = (1 - l3)*percent
-    new_l3 = l3 + diff
-    diff_others = diff/3
-    new_l1 = l1 - diff_others
-    new_l2 = l2 - diff_others
-    new_l0 = 1 - new_l2 - new_l1 - new_l3
-    assert 0.999999999 <= new_l1 + new_l2 + new_l0 + new_l3 <= 1
+def add_percent(l0, l1, l2, l3, percent):
+    assert percent != 0
+    delta = (1 - l3)*percent
+    assert delta != 0
+    new_l3 = l3 + delta
+    new_l1 = l1 - l1*percent
+    new_l2 = l2 - l2*percent
+    new_l0 = 1 - new_l1 - new_l2 - new_l3
+    assert new_l3 >= 0,  f"{new_l3}, {l3}"
+    assert new_l2 >= 0,  f"{new_l2}, {l2}"
+    assert new_l1 >= 0,  f"{new_l1}, {l1}"
+    assert new_l0 >= 0,  f"{new_l0}, {l0}"
+    return new_l0, new_l1, new_l2, new_l3
+
+def set_percent(l0, l1, l2, l3, percent):
+    """
+    set the trigram smoothing parameter to 90%, 80%, 70%, ... 10%, 0% of its value,
+    """
+    new_l3 = l3*percent
+    delta = abs(l3 - new_l3)
+    new_l1 = l1 + l1*percent
+    new_l2 = l2 + l2*percent
+    new_l0 = 1 - new_l1 - new_l2 - new_l3
     return new_l0, new_l1, new_l2, new_l3
 
 log_file = ""

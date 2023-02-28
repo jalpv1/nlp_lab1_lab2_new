@@ -1,8 +1,9 @@
 import numpy as np
 from nltk.util import ngrams
 import sys
+import math
 
-from assignment_utils import split, discount_by, set_log_file, log, tabulate_list, count_words, count_ngrams, BiGram, TriGram, bigram_from, trigram_from
+from assignment_utils import split, set_log_file, log, tabulate_list, count_words, count_ngrams, BiGram, TriGram, bigram_from, trigram_from
 
 # unique_words_d_cz = {w for w in tr_d_cz}
 # unique_words_count_d_cz = len(unique_words)
@@ -30,72 +31,105 @@ def compute_p(dataset, unigram_data, bigram_data, trigram_data):
         trigram_probs[trigram] = trigram_dict[trigram] / bigram_dict[bigram]
     return unigram_probs, bigram_probs, trigram_probs
 
+def uniform_probability(vocabulary_size):
+    return 1/vocabulary_size
+
+def unigram_probability(trigram, unigram_dataset, word_counts):
+    word = trigram.third
+    vocabulary_size = len(word_counts.keys())
+    if word not in word_counts:
+        return uniform_probability(vocabulary_size)
+    return word_counts[word] / len(unigram_dataset)
+
+def bigram_probability(trigram, bigram_counts, word_counts):
+    bigram = BiGram(trigram.second, trigram.third)
+    vocabulary_size = len(word_counts.keys())
+    if bigram not in bigram_counts:
+        return uniform_probability(vocabulary_size)
+    return bigram_counts[bigram] / word_counts[bigram.left]
+
+def trigram_probability(trigram, trigram_counts, bigram_counts, word_counts):
+    vocabulary_size = len(word_counts.keys())
+    if trigram not in trigram_counts:
+        return uniform_probability(vocabulary_size)
+    return trigram_counts[trigram] / bigram_counts[BiGram(trigram.first, trigram.second)]
+
+def smoothed_probability(trigram, l0, l1, l2, l3, unigram_dataset, trigram_counts, bigram_counts, word_counts):
+    vocabulary_size = len(word_counts.keys())
+    return  \
+      l0*uniform_probability(vocabulary_size) \
+    + l1*unigram_probability(trigram, unigram_dataset, word_counts) \
+    + l2*bigram_probability(trigram, bigram_counts, word_counts) \
+    + l3*trigram_probability(trigram, trigram_counts, bigram_counts, word_counts)
+
+def equals_with(a, b, precision):
+    if isinstance(a, list) and isinstance(b, list):
+        if len(a) != len(b):
+            return False
+        for pair in zip(a,b):
+            if not math.isclose(pair[0], pair[1], abs_tol=precision):
+                return False
+        return True
+    return math.isclose(a, b, abs_tol=precision)
+
 # calculate smoothing params
-def smothing_param(dataset, unigram_data, bigram_data, trigram_data, unigram_probs1,
-                   bigram_probs1, trigram_probs1, heldout_len):
-    l2 = 0.1
-    l3 = 0.1
-    l1 = 0.3
-    l4 = 0.3
-    l0 = 1 - l4 - l2 - l2
-    smoothed_prods = dict()
-    m = 0
+def smothing_param(trigram_heldout_data, unigram_train_data, bigram_train_data, trigram_train_data):
+
+    word_counts = count_words(unigram_train_data)
+    vocabulary_size = len(word_counts.keys())
+
+    bigram_counts = count_ngrams(bigram_train_data)
+
+    trigram_counts = count_ngrams(trigram_train_data)
+
+    l0 = 0.25
+    l1 = 0.25
+    l2 = 0.25
+    l3 = 0.25
     c_l0 = 0
     c_l1 = 0
     c_l2 = 0
     c_l3 = 0
-    e = 0.001
-    uniform_probability = 1 / len(dataset)
+    e = 0.0001
     while (True):
-        # if m > 100:
-        #     break
-        m = m + 1
-        for i in range(len(unigram_data)):
-            word1 = unigram_probs1[unigram_data[i]]
-            if i + 2 == len(unigram_data) or i + 1 == len(unigram_data):
-                break
+        for trigram in trigram_heldout_data:
 
-            word2 = bigram_probs1[bigram_data[i]]
-            word3 = trigram_probs1[trigram_data[i]]
+            smoothed = smoothed_probability(trigram, l0, l1, l2, l3, unigram_train_data, trigram_counts, bigram_counts,  word_counts)
 
-            smoothed_prods[unigram_data[i]] = l1 * word1 + l2 * word2 + l3 * word3 + l0 * 1 / heldout_len
-        for word1 in smoothed_prods.keys():
-            c_l0 += l0 * uniform_probability / smoothed_prods[word1]
-        # print("c0 " + str(c_l0))
-        for word1 in unigram_probs1.keys():
-            c_l1 += l1 * unigram_probs1[word1] / smoothed_prods[word1]
-        # print("c1 " + str(c_l1))
-
-        for i in range(len(bigram_data)):
-            c_l2 += l2 * bigram_probs1[bigram_data[i]] / smoothed_prods[unigram_data[i]]
-
-        for i in range(len(trigram_data)):
-            c_l3 += l3 * trigram_probs1[trigram_data[i]] / smoothed_prods[unigram_data[i]]
-        # print("c2 " + str(c_l2))
+            c_l0 += l0 * uniform_probability(vocabulary_size) / smoothed
+            c_l1 += l1 * unigram_probability(trigram, unigram_train_data, word_counts) / smoothed
+            c_l2 += l2 * bigram_probability(trigram, bigram_counts, word_counts) / smoothed
+            c_l3 += l3 * trigram_probability(trigram, trigram_counts, bigram_counts, word_counts) / smoothed
 
         l0_new = c_l0 / (c_l0 + c_l1 + c_l2 + c_l3)
         l1_new = c_l1 / (c_l0 + c_l1 + c_l2 + c_l3)
         l2_new = c_l2 / (c_l0 + c_l1 + c_l2 + c_l3)
         l3_new = c_l3 / (c_l0 + c_l1 + c_l2 + c_l3)
-        #print("l0_new " + str(l0_new))
-        # print("l1_new " + str(l1_new))
-        # print("l2_new " + str(l2_new))
-        # print("l3_new " + str(l3_new))
-        #
-        # print("l0 " + str(l0))
-        # print("l1 " + str(l1))
-        # print("l2 " + str(l2))
-        # print("l3 " + str(l3))
-        sum_l = l0 + l1 + l2 + l3
-        # print(str(sum_l))
 
-        if abs(l0_new - l0) < e and abs(l1_new - l1) < e and abs(l2_new - l2) < e and abs(l3_new - l3) < e:
+        if equals_with([l0_new,l1_new,l2_new,l3_new],[l0,l1,l2,l3], e):
             break
+
         l0 = l0_new
         l1 = l1_new
         l2 = l2_new
         l3 = l3_new
+  
     return [l0, l1, l2, l3]
+
+def cross_entropy(l0, l1, l2, l3, trigram_test_data, dataset, trigram_train_data, bigram_train_data, unigram_train_data): 
+    word_counts = count_words(unigram_train_data)
+
+    bigram_counts = count_ngrams(bigram_train_data)
+
+    trigram_counts = count_ngrams(trigram_train_data)
+
+    H = 0
+    for trigram in trigram_test_data:
+        prob = smoothed_probability(trigram, l0, l1, l2, l3, unigram_dataset=unigram_train_data, trigram_counts=trigram_counts, bigram_counts=bigram_counts, word_counts=word_counts)
+        assert prob >= 0
+        H += np.log2(prob)
+    H = -H
+    return H/len(dataset)
 
 def compute_entropy(unigram_data, bigram_data, trigram_data, unigram_probs1,
                    bigram_probs1, trigram_probs1, l0, l1,l2,l3):
